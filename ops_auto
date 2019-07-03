@@ -13,20 +13,9 @@ import hashlib
 import hmac
 import argparse
 import uuid
-import json
 import time
 import datetime
 import requests
-
-title = """
- _____            ____  _____   _____
-| ____|          / __ \|  __ \ / ____|
-| | (___   ___  ___| |  | | |__) | (___
-|\___ \ / _ \/ __| |  | |  ___/ \____ |
-|____) |  __| (__| |__| | |     ____) |
-|_____/ \___|\___|\____/|_|    |_____/
-"""
-print(title)
 
 
 def main():
@@ -123,27 +112,36 @@ def main():
         secret_key = os.environ.get("MIME_SECRET_KEY")
         app_id = os.environ.get("MIME_APP_ID")
         app_key = os.environ.get("MIME_APP_KEY")
+        delimiter = ":"
 
         # Generate request header values
         request_id = str(uuid.uuid4())
         hdr_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S") + " UTC"
 
         # Create the HMAC SHA1 of the Base64 decoded secret key for the Authorization header
-        # base64.b64decode(secret_key)
-        hmac_sha1 = hmac.new(secret_key, ':'.join([hdr_date, request_id, uri, app_key]),
-                     digestmod=hashlib.sha1).hexdigest()
+
+        acc = bytes(access_key, 'UTF-8')
+        app = bytes(app_key, 'UTF-8')
+        u = bytes(uri, 'UTF-8')
+        req = bytes(request_id, 'UTF-8')
+        hdr = bytes(hdr_date, 'UTF-8')
+        key = bytes(secret_key, 'UTF-8')
+        delim = bytes(delimiter, 'UTF-8')
+
+        code = base64.b64decode(key)
+        hmac_sha1 = hmac.new(code, delim.join([hdr, req, u, app]), hashlib.sha1).digest()
 
         # Use the HMAC SHA1 value to sign the hdrDate + ":" requestId + ":" + URI + ":" + appkey
         sig = base64.encodebytes(hmac_sha1).rstrip()
 
         # Create request headers
         headers = {
-            'Authorization': 'MC ' + access_key + ':' + sig,
+            'Authorization': b'MC ' + acc + b':' + sig,
             'x-mc-app-id': app_id,
             'x-mc-date': hdr_date,
             'x-mc-req-id': request_id,
             'Content-Type': 'application/json'
-}
+        }
 
         payload = {
             'data': [
@@ -151,13 +149,13 @@ def main():
                     'sender': sender,
                     'to': to,
                     'action': action # permit or block
-            }
-        ]
-    }
+                }
+            ]
+        }
 
-        r = requests.post(url=url, headers=headers, data=str(payload))
+        response = requests.post(url=url, headers=headers, data=str(payload))
 
-        print(r.text)
+        print(response.text)
     if args.ip:
         ip_scan(args.ip)
     elif args.url:
