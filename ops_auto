@@ -4,7 +4,7 @@
 # Status: Development
 # Maintainer: Obehi Iredia
 # Version: 1.0.0
-# Desc: Scan a URL, IP, parse email headers and allow you to block/add emails via permitted senders list
+# Desc: Scan a URL & IP for malicious indicators. Block/permit email addresses in Mimecast.
 
 import os
 import sys
@@ -20,13 +20,13 @@ import requests
 
 def main():
 
-    parser = argparse.ArgumentParser("Scans url's, IP's, parses email headers, blocks email addresses/url's")
+    parser = argparse.ArgumentParser("Scan a URL & IP for malicious indicators. Block/permit addresses in Mimecast.")
 
     parser.add_argument("-u", "--url", help="Scan a URL for malicious characteristics")
     parser.add_argument("-i", "--ip", help="Scan an IP address for any malicious activities seen within 80 days")
-    #  parser.add_argument("-e", "--email_hdr", help="Use this to parse email header to a readable format")
     parser.add_argument("-a", "--action", help="Permit (to bypass spam checks) or block (to reject the email)")
-    parser.add_argument("-b", "--block", help="Block ip/url on MWG")
+    parser.add_argument("-b", "--blocked-senders", help="Add email to the blocked senders profile group AKA all users ")
+    parser.add_argument("-p", "--permitted-senders", help="Add email to the permitted senders profile group AKA all users ")
     parser.add_argument("-m", "--mime", action='store_true', help=" Use to access Managed Senders")
     parser.add_argument("-t", "--to", help="The email address of recipient to permit or block")
     parser.add_argument("-s", "--sender", help="The email address of sender to permit or block")
@@ -154,15 +154,137 @@ def main():
         }
 
         response = requests.post(url=url, headers=headers, data=str(payload))
+        res_json = response.json()
+        if res_json["meta"]["status"] == 200:
+            print("{} managed senders list was successfully modified.".format(to))
+        else:
+            print("There was an error while processing the request")
 
-        print(response.text)
+    def permitted_senders_group(permitted_senders):
+
+        base_url = "https://us-api.mimecast.com"
+        uri = "/api/directory/add-group-member"
+        url = base_url + uri
+        access_key = os.environ.get("MIME_ACCESS_KEY")
+        secret_key = os.environ.get("MIME_SECRET_KEY")
+        app_id = os.environ.get("MIME_APP_ID")
+        app_key = os.environ.get("MIME_APP_KEY")
+        permitted_group = os.environ.get("PERMITTED_SENDERS_ID")
+        delimiter = ":"
+
+    # Generate request header values
+        request_id = str(uuid.uuid4())
+        hdr_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S") + " UTC"
+
+    # Create the HMAC SHA1 of the Base64 decoded secret key for the Authorization header
+        acc = bytes(access_key, 'UTF-8')
+        app = bytes(app_key, 'UTF-8')
+        u = bytes(uri, 'UTF-8')
+        req = bytes(request_id, 'UTF-8')
+        hdr = bytes(hdr_date, 'UTF-8')
+        key = bytes(secret_key, 'UTF-8')
+        delim = bytes(delimiter, 'UTF-8')
+
+        code = base64.b64decode(key)
+        hmac_sha1 = hmac.new(code, delim.join([hdr, req, u, app]), hashlib.sha1).digest()
+
+    # Use the HMAC SHA1 value to sign the hdrDate + ":" requestId + ":" + URI + ":" + appkey
+        sig = base64.encodebytes(hmac_sha1).rstrip()
+
+    # Create request headers
+        headers = {
+            'Authorization': b'MC ' + acc + b':' + sig,
+            'x-mc-app-id': app_id,
+            'x-mc-date': hdr_date,
+            'x-mc-req-id': request_id,
+            'Content-Type': 'application/json'
+         }
+        payload = {
+            'data': [
+             {
+                'id': permitted_group,
+                'emailAddress': permitted_senders,
+                # 'domain': 'String'
+             }
+            ]
+          }
+
+        r = requests.post(url=url, headers=headers, data=str(payload))
+        r_json = r.json()
+
+        if r_json["meta"]["status"] == 200:
+            print("{} has successfully been added to the Permitted profile group".format(permitted_senders))
+        else:
+            print("Uh oh, something went wrong. Please try via the Mimecast UI")
+
+    def blocked_senders_group(blocked_senders):
+
+        base_url = "https://us-api.mimecast.com"
+        uri = "/api/directory/add-group-member"
+        url = base_url + uri
+        access_key = os.environ.get("MIME_ACCESS_KEY")
+        secret_key = os.environ.get("MIME_SECRET_KEY")
+        app_id = os.environ.get("MIME_APP_ID")
+        app_key = os.environ.get("MIME_APP_KEY")
+        blocked_group = os.environ.get("BLOCKED_SENDERS_ID")
+        delimiter = ":"
+
+        # Generate request header values
+        request_id = str(uuid.uuid4())
+        hdr_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S") + " UTC"
+
+        # Create the HMAC SHA1 of the Base64 decoded secret key for the Authorization header
+        acc = bytes(access_key, 'UTF-8')
+        app = bytes(app_key, 'UTF-8')
+        u = bytes(uri, 'UTF-8')
+        req = bytes(request_id, 'UTF-8')
+        hdr = bytes(hdr_date, 'UTF-8')
+        key = bytes(secret_key, 'UTF-8')
+        delim = bytes(delimiter, 'UTF-8')
+
+        code = base64.b64decode(key)
+        hmac_sha1 = hmac.new(code, delim.join([hdr, req, u, app]), hashlib.sha1).digest()
+
+        # Use the HMAC SHA1 value to sign the hdrDate + ":" requestId + ":" + URI + ":" + appkey
+        sig = base64.encodebytes(hmac_sha1).rstrip()
+
+        # Create request headers
+        headers = {
+            'Authorization': b'MC ' + acc + b':' + sig,
+            'x-mc-app-id': app_id,
+            'x-mc-date': hdr_date,
+            'x-mc-req-id': request_id,
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            'data': [
+                {
+                    'id': blocked_group,
+                    'emailAddress': blocked_senders,
+                    # 'domain': 'String'
+                }
+            ]
+        }
+
+        r = requests.post(url=url, headers=headers, data=str(payload))
+        r_json = r.json()
+
+        if r_json["meta"]["status"] == 200:
+            print("{} has successfully been added to the Blocked profile group".format(blocked_senders))
+        else:
+            print("Uh oh, something went wrong. Please try via the Mimecast UI")
+
     if args.ip:
         ip_scan(args.ip)
     elif args.url:
         url_scan(args.url)
     elif args.mime:
         managed_senders(args.sender, args.to, args.action)
-    
+    elif args.permitted_senders:
+        permitted_senders_group(args.permitted_senders)
+    elif args.blocked_senders:
+        blocked_senders_group(args.blocked_senders)
 
+    
 if __name__ == '__main__':
     main()
