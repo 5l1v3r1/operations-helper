@@ -3,7 +3,7 @@
 # Author: Obehi Iredia
 # Status: Development
 # Maintainer: Obehi Iredia
-# Version: 1.0.0
+# Version: 1.0.4
 # Desc: Scan a URL & IP for malicious indicators. Block/permit email addresses in Mimecast.
 
 import os
@@ -85,6 +85,20 @@ def main():
             print("Domain: " + results["data"]["domain"])
 
     def url_scan(url):
+
+        def update_progress(job_title, progress):
+            length = 20 # modify this to change the length
+            block = int(round(length*progress))
+            msg = "\r{0}: [{1}] {2}%".format(job_title, "#"*block + "-"*(length-block), round(progress*100, 2))
+            if progress >= 1: msg += " DONE\r\n"
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+
+        for i in range(100):
+            time.sleep(0.01)  # speed of loading bar
+            update_progress("Checking the reputation for: " + url, i/100.0)
+        update_progress(url, 1)
+
         # This will scan a URL via VirusTotal if the url flag is used
         vt_api = "https://www.virustotal.com/vtapi/v2/url/report"
         vt_params = {
