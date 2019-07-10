@@ -118,6 +118,7 @@ def main():
 
     def managed_senders(sender, to, action):
         # Setup required variables
+        # Setup required variables and set keys as environment variables for security purposes.
 
         base_url = "https://us-api.mimecast.com"
         uri = "/api/managedsender/permit-or-block-sender"
@@ -133,6 +134,7 @@ def main():
         hdr_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S") + " UTC"
 
         # Create the HMAC SHA1 of the Base64 decoded secret key for the Authorization header
+        # Below the variables are converted to byte code instead strings
 
         acc = bytes(access_key, 'UTF-8')
         app = bytes(app_key, 'UTF-8')
