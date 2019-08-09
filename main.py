@@ -110,11 +110,13 @@ def main():
         url_response = requests.post(vt_api, data=vt_params)
         # url_output = (json.loads(url_response.text))
         url_output = url_response.json()
-        if url_output["positives"] > 0:
-            print("{}/70 vendors has flagged this site as malicious".format(url_output["positives"]))
-        else:
-            print("URL has not been flagged by any Antivirus vendors")
-            # Ask user if they would like to add URL to proxy block list
+        try:
+            if url_output["positives"] > 0:
+                print("{}/70 vendors has flagged this site as malicious".format(url_output["positives"]))
+            else:
+                print("URL has not been flagged by any Antivirus vendors")
+        except KeyError:
+            print("Error, please check the URL format.")
 
     def managed_senders(sender, to, action):
         # Setup required variables
