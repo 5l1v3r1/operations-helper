@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# Author: Obehi Iredia
-# Status: Development
-# Maintainer: Obehi Iredia
-# Version: 1.0.4
+
 # Desc: Scan a URL & IP for malicious indicators. Block/permit email addresses in Mimecast.
 
 import os
